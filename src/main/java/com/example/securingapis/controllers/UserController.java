@@ -9,9 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,24 +37,19 @@ public class UserController {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole("USER");
         userRepository.save(user);
+
         return ResponseEntity.ok("User registered successfully");
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-            );
-            if (authentication.isAuthenticated()) {
-                String token = jwtTokenUtil.generateToken(request.getUsername());
-                return ResponseEntity.ok(Collections.singletonMap("message", String.format(
-                        "Login successful.\nUsername: %s\nPassword: %s\nRole: USER\nToken: %s",
-                        request.getUsername(), request.getPassword(), token)));            }
-            else {
-                return ResponseEntity.status(401).body("Invalid credentials");
-            }
-        } catch (AuthenticationException e) {
+        User user = userRepository.findByUsername(request.getUsername());
+        if (user != null && passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            String token = jwtTokenUtil.generateToken(request.getUsername());
+            String message = String.format("Login successful. Username: %s, Password: %s, Role: USER, Token: %s",
+                    request.getUsername(), request.getPassword(), token);
+            return ResponseEntity.ok(Collections.singletonMap("response", message));
+        } else {
             return ResponseEntity.status(401).body("Invalid credentials");
         }
     }
